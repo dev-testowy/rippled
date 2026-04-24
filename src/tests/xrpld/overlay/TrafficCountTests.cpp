@@ -1,6 +1,6 @@
 #include <xrpld/overlay/detail/TrafficCount.h>
 
-#include <xrpl/beast/unit_test/suite.h>
+#include <helpers/GTestBeastSuite.h>
 
 #include <xrpl.pb.h>
 
@@ -9,8 +9,9 @@
 
 namespace xrpl::test {
 
-class traffic_count_test : public beast::unit_test::suite
+class traffic_count_test : public GTestBeastSuite
 {
+protected:
 public:
     traffic_count_test() = default;
 
@@ -280,18 +281,36 @@ public:
             TrafficCount::to_string(static_cast<TrafficCount::category>(1000)) == "unknown");
     }
 
-    void
-    run() override
-    {
-        testCategorize();
-        testLedgerDataCategorize();
-        testGetLedgerCategorize();
-        testGetObjectByHashCategorize();
-        testAddCount();
-        testToString();
-    }
 };
 
-BEAST_DEFINE_TESTSUITE(traffic_count, overlay, xrpl);
+TEST_F(traffic_count_test, Categorize)
+{
+    testCategorize();
+}
+
+TEST_F(traffic_count_test, LedgerDataCategorize)
+{
+    testLedgerDataCategorize();
+}
+
+TEST_F(traffic_count_test, GetLedgerCategorize)
+{
+    testGetLedgerCategorize();
+}
+
+TEST_F(traffic_count_test, GetObjectByHashCategorize)
+{
+    testGetObjectByHashCategorize();
+}
+
+TEST_F(traffic_count_test, AddCount)
+{
+    testAddCount();
+}
+
+TEST_F(traffic_count_test, ToString)
+{
+    testToString();
+}
 
 }  // namespace xrpl::test

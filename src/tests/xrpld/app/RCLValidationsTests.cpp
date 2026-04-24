@@ -11,7 +11,7 @@
 
 #include <xrpl/basics/base_uint.h>
 #include <xrpl/basics/chrono.h>
-#include <xrpl/beast/unit_test/suite.h>
+#include <helpers/GTestBeastSuite.h>
 #include <xrpl/ledger/Ledger.h>
 #include <xrpl/protocol/Indexes.h>
 #include <xrpl/protocol/KeyType.h>
@@ -29,8 +29,9 @@
 
 namespace xrpl::test {
 
-class RCLValidations_test : public beast::unit_test::suite
+class RCLValidations_test : public GTestBeastSuite
 {
+protected:
     static std::unique_ptr<Config>
     makeTrustedValidatorConfig(std::string const& seed)
     {
@@ -452,17 +453,26 @@ class RCLValidations_test : public beast::unit_test::suite
         BEAST_EXPECT(logs.find("Multiple validations") != std::string::npos);
     }
 
-public:
-    void
-    run() override
-    {
-        testChangeTrusted();
-        testRCLValidatedLedger();
-        testLedgerTrieRCLValidatedLedger();
-        testAdaptorAcquireAndHandleValidation();
-    }
 };
 
-BEAST_DEFINE_TESTSUITE(RCLValidations, app, xrpl);
+TEST_F(RCLValidations_test, ChangeTrusted)
+{
+    testChangeTrusted();
+}
+
+TEST_F(RCLValidations_test, RCLValidatedLedger)
+{
+    testRCLValidatedLedger();
+}
+
+TEST_F(RCLValidations_test, LedgerTrieRCLValidatedLedger)
+{
+    testLedgerTrieRCLValidatedLedger();
+}
+
+TEST_F(RCLValidations_test, AdaptorAcquireAndHandleValidation)
+{
+    testAdaptorAcquireAndHandleValidation();
+}
 
 }  // namespace xrpl::test

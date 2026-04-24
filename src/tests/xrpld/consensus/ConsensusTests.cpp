@@ -17,7 +17,7 @@
 #include <xrpl/basics/Log.h>
 #include <xrpl/basics/UnorderedContainers.h>
 #include <xrpl/basics/chrono.h>
-#include <xrpl/beast/unit_test/suite.h>
+#include <helpers/GTestBeastSuite.h>
 #include <xrpl/beast/utility/Journal.h>
 #include <xrpl/ledger/LedgerTiming.h>
 
@@ -43,8 +43,9 @@ checkConsensusReached(
 
 namespace xrpl::test {
 
-class Consensus_test : public beast::unit_test::suite
+class Consensus_test : public GTestBeastSuite
 {
+protected:
     SuiteJournal journal_;
 
 public:
@@ -1483,26 +1484,75 @@ public:
         }
     }
 
-    void
-    run() override
-    {
-        testShouldCloseLedger();
-        testCheckConsensus();
-        testLoggingHelpers();
-
-        testStandalone();
-        testPeersAgree();
-        testSlowPeers();
-        testCloseTimeDisagree();
-        testWrongLCL();
-        testConsensusCloseTimeRounding();
-        testFork();
-        testHubNetwork();
-        testPreferredByBranch();
-        testPauseForLaggards();
-        testDisputes();
-    }
 };
 
-BEAST_DEFINE_TESTSUITE(Consensus, consensus, xrpl);
+TEST_F(Consensus_test, ShouldCloseLedger)
+{
+    testShouldCloseLedger();
+}
+
+TEST_F(Consensus_test, CheckConsensus)
+{
+    testCheckConsensus();
+}
+
+TEST_F(Consensus_test, LoggingHelpers)
+{
+    testLoggingHelpers();
+}
+
+TEST_F(Consensus_test, Standalone)
+{
+    testStandalone();
+}
+
+TEST_F(Consensus_test, PeersAgree)
+{
+    testPeersAgree();
+}
+
+TEST_F(Consensus_test, SlowPeers)
+{
+    testSlowPeers();
+}
+
+TEST_F(Consensus_test, CloseTimeDisagree)
+{
+    testCloseTimeDisagree();
+}
+
+TEST_F(Consensus_test, WrongLCL)
+{
+    testWrongLCL();
+}
+
+TEST_F(Consensus_test, ConsensusCloseTimeRounding)
+{
+    testConsensusCloseTimeRounding();
+}
+
+TEST_F(Consensus_test, Fork)
+{
+    testFork();
+}
+
+TEST_F(Consensus_test, HubNetwork)
+{
+    testHubNetwork();
+}
+
+TEST_F(Consensus_test, PreferredByBranch)
+{
+    testPreferredByBranch();
+}
+
+TEST_F(Consensus_test, PauseForLaggards)
+{
+    testPauseForLaggards();
+}
+
+TEST_F(Consensus_test, Disputes)
+{
+    testDisputes();
+}
 }  // namespace xrpl::test

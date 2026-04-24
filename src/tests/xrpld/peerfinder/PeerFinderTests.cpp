@@ -9,7 +9,7 @@
 
 #include <xrpl/basics/chrono.h>
 #include <xrpl/beast/net/IPEndpoint.h>
-#include <xrpl/beast/unit_test/suite.h>
+#include <helpers/GTestBeastSuite.h>
 #include <xrpl/protocol/KeyType.h>
 #include <xrpl/protocol/PublicKey.h>
 #include <xrpl/protocol/SecretKey.h>
@@ -28,8 +28,9 @@
 
 namespace xrpl::PeerFinder {
 
-class PeerFinder_test : public beast::unit_test::suite
+class PeerFinder_test : public test::GTestBeastSuite
 {
+protected:
     test::SuiteJournal journal_;
 
 public:
@@ -774,27 +775,81 @@ public:
 )xrpldConfig");
     }
 
-    void
-    run() override
-    {
-        test_backoff1();
-        test_backoff2();
-        test_duplicateOutIn();
-        test_duplicateInOut();
-        test_config();
-        test_invalid_config();
-        test_peerLimitExceeded();
-        test_activate_duplicate_peer();
-        test_activate_inbound_disabled();
-        test_addFixedPeer_no_port();
-        test_onConnected_self_connection();
-        test_preprocess_and_endpoint_handling();
-        test_redirects_sources_stop_and_state();
-        test_handouts();
-        test_bootcache();
-    }
 };
 
-BEAST_DEFINE_TESTSUITE(PeerFinder, peerfinder, xrpl);
+TEST_F(PeerFinder_test, BackoffWithoutActivate)
+{
+    test_backoff1();
+}
+
+TEST_F(PeerFinder_test, BackoffWithActivate)
+{
+    test_backoff2();
+}
+
+TEST_F(PeerFinder_test, DuplicateOutIn)
+{
+    test_duplicateOutIn();
+}
+
+TEST_F(PeerFinder_test, DuplicateInOut)
+{
+    test_duplicateInOut();
+}
+
+TEST_F(PeerFinder_test, PeerLimitExceeded)
+{
+    test_peerLimitExceeded();
+}
+
+TEST_F(PeerFinder_test, ActivateDuplicatePeer)
+{
+    test_activate_duplicate_peer();
+}
+
+TEST_F(PeerFinder_test, ActivateInboundDisabled)
+{
+    test_activate_inbound_disabled();
+}
+
+TEST_F(PeerFinder_test, AddFixedPeerNoPort)
+{
+    test_addFixedPeer_no_port();
+}
+
+TEST_F(PeerFinder_test, OnConnectedSelfConnection)
+{
+    test_onConnected_self_connection();
+}
+
+TEST_F(PeerFinder_test, PreprocessAndEndpointHandling)
+{
+    test_preprocess_and_endpoint_handling();
+}
+
+TEST_F(PeerFinder_test, RedirectsSourcesStopAndState)
+{
+    test_redirects_sources_stop_and_state();
+}
+
+TEST_F(PeerFinder_test, Handouts)
+{
+    test_handouts();
+}
+
+TEST_F(PeerFinder_test, Bootcache)
+{
+    test_bootcache();
+}
+
+TEST_F(PeerFinder_test, Config)
+{
+    test_config();
+}
+
+TEST_F(PeerFinder_test, InvalidConfig)
+{
+    test_invalid_config();
+}
 
 }  // namespace xrpl::PeerFinder

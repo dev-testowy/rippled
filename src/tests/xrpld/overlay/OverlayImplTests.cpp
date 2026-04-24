@@ -14,7 +14,7 @@
 #include <xrpl/basics/base_uint.h>
 #include <xrpl/basics/make_SSLContext.h>
 #include <xrpl/beast/net/IPEndpoint.h>
-#include <xrpl/beast/unit_test/suite.h>
+#include <helpers/GTestBeastSuite.h>
 #include <xrpl/protocol/KeyType.h>
 #include <xrpl/protocol/PublicKey.h>
 #include <xrpl/protocol/SecretKey.h>
@@ -40,8 +40,9 @@
 
 namespace xrpl::test {
 
-class OverlayImpl_test : public beast::unit_test::suite
+class OverlayImpl_test : public GTestBeastSuite
 {
+protected:
     using socket_type = boost::asio::ip::tcp::socket;
     using middle_type = boost::beast::tcp_stream;
     using stream_type = boost::beast::ssl_stream<middle_type>;
@@ -290,15 +291,21 @@ class OverlayImpl_test : public beast::unit_test::suite
         overlay.reportOutboundTraffic(TrafficCount::category::base, 20);
     }
 
-    void
-    run() override
-    {
-        testActivePeerLookup();
-        testBroadcastAndRelay();
-        testTransactionHashRelay();
-    }
 };
 
-BEAST_DEFINE_TESTSUITE(OverlayImpl, overlay, xrpl);
+TEST_F(OverlayImpl_test, ActivePeerLookup)
+{
+    testActivePeerLookup();
+}
+
+TEST_F(OverlayImpl_test, BroadcastAndRelay)
+{
+    testBroadcastAndRelay();
+}
+
+TEST_F(OverlayImpl_test, TransactionHashRelay)
+{
+    testTransactionHashRelay();
+}
 
 }  // namespace xrpl::test

@@ -10,7 +10,7 @@
 #include <xrpld/core/Config.h>
 
 #include <xrpl/basics/base_uint.h>
-#include <xrpl/beast/unit_test/suite.h>
+#include <helpers/GTestBeastSuite.h>
 #include <xrpl/protocol/Feature.h>
 #include <xrpl/protocol/SField.h>
 #include <xrpl/protocol/STObject.h>
@@ -23,8 +23,9 @@
 
 namespace xrpl::test {
 
-class LedgerMaster_test : public beast::unit_test::suite
+class LedgerMaster_test : public GTestBeastSuite
 {
+protected:
     static std::shared_ptr<Ledger const>
     asLedger(std::shared_ptr<ReadView const> const& ledger)
     {
@@ -241,6 +242,7 @@ class LedgerMaster_test : public beast::unit_test::suite
         if (!validated)
             return;
 
+        ledgerMaster.tryAdvance();
         auto const published = asLedger(ledgerMaster.getPublishedLedger());
         BEAST_EXPECT(published);
         if (!published)
@@ -308,26 +310,31 @@ class LedgerMaster_test : public beast::unit_test::suite
         BEAST_EXPECT(!ledgerMaster.newOrderBookDB());
     }
 
-public:
-    void
-    run() override
-    {
-        using namespace test::jtx;
-        FeatureBitset const all{testable_amendments()};
-        testWithFeats(all);
-    }
-
-    void
-    testWithFeats(FeatureBitset features)
-    {
-        testTxnIdFromIndex(features);
-        testLedgerAgeAndCatchup();
-        testCurrentLedgerChecks();
-        testValidatedRanges();
-        testLedgerLookupsAndHeldTransactions();
-    }
 };
 
-BEAST_DEFINE_TESTSUITE(LedgerMaster, app, xrpl);
+TEST_F(LedgerMaster_test, TxIdFromIndex)
+{
+    testTxnIdFromIndex(jtx::testable_amendments());
+}
+
+TEST_F(LedgerMaster_test, LedgerAgeAndCatchup)
+{
+    testLedgerAgeAndCatchup();
+}
+
+TEST_F(LedgerMaster_test, CurrentLedgerChecks)
+{
+    testCurrentLedgerChecks();
+}
+
+TEST_F(LedgerMaster_test, ValidatedRanges)
+{
+    testValidatedRanges();
+}
+
+TEST_F(LedgerMaster_test, LedgerLookupsAndHeldTransactions)
+{
+    testLedgerLookupsAndHeldTransactions();
+}
 
 }  // namespace xrpl::test

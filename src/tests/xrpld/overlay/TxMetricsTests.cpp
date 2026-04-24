@@ -1,6 +1,6 @@
 #include <xrpld/overlay/detail/TxMetrics.h>
 
-#include <xrpl/beast/unit_test/suite.h>
+#include <helpers/GTestBeastSuite.h>
 #include <xrpl/protocol/jss.h>
 
 #include <xrpl.pb.h>
@@ -11,8 +11,9 @@
 
 namespace xrpl::test {
 
-class tx_metrics_test : public beast::unit_test::suite
+class tx_metrics_test : public GTestBeastSuite
 {
+protected:
     static void
     rewind(metrics::SingleMetrics& metrics)
     {
@@ -88,14 +89,16 @@ public:
         expectJson(json, jss::txr_missing_tx_freq, 100);
     }
 
-    void
-    run() override
-    {
-        testProtocolMetrics();
-        testPeerAndMissingTxMetrics();
-    }
 };
 
-BEAST_DEFINE_TESTSUITE(tx_metrics, overlay, xrpl);
+TEST_F(tx_metrics_test, ProtocolMetrics)
+{
+    testProtocolMetrics();
+}
+
+TEST_F(tx_metrics_test, PeerAndMissingTransactionMetrics)
+{
+    testPeerAndMissingTxMetrics();
+}
 
 }  // namespace xrpl::test

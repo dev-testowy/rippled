@@ -13,7 +13,7 @@
 #include <xrpl/basics/base_uint.h>
 #include <xrpl/basics/make_SSLContext.h>
 #include <xrpl/beast/net/IPEndpoint.h>
-#include <xrpl/beast/unit_test/suite.h>
+#include <helpers/GTestBeastSuite.h>
 #include <xrpl/core/JobQueue.h>
 #include <xrpl/protocol/KeyType.h>
 #include <xrpl/protocol/PublicKey.h>
@@ -46,8 +46,9 @@
 
 namespace xrpl::test {
 
-class PeerImp_test : public beast::unit_test::suite
+class PeerImp_test : public GTestBeastSuite
 {
+protected:
     using socket_type = boost::asio::ip::tcp::socket;
     using middle_type = boost::beast::tcp_stream;
     using stream_type = boost::beast::ssl_stream<middle_type>;
@@ -687,20 +688,46 @@ class PeerImp_test : public beast::unit_test::suite
         }
     }
 
-    void
-    run() override
-    {
-        testIdentityAndFeatures();
-        testLedgerState();
-        testPingAndTxQueue();
-        testProtocolMessages();
-        testFeatureAndMessageGuards();
-        testLedgerRequestValidation();
-        testLedgerDataAndObjectRequests();
-        testValidationProposalAndSquelchHandlers();
-    }
 };
 
-BEAST_DEFINE_TESTSUITE(PeerImp, overlay, xrpl);
+TEST_F(PeerImp_test, IdentityAndFeatures)
+{
+    testIdentityAndFeatures();
+}
+
+TEST_F(PeerImp_test, LedgerState)
+{
+    testLedgerState();
+}
+
+TEST_F(PeerImp_test, PingAndTxQueue)
+{
+    testPingAndTxQueue();
+}
+
+TEST_F(PeerImp_test, ProtocolMessages)
+{
+    testProtocolMessages();
+}
+
+TEST_F(PeerImp_test, FeatureAndMessageGuards)
+{
+    testFeatureAndMessageGuards();
+}
+
+TEST_F(PeerImp_test, LedgerRequestValidation)
+{
+    testLedgerRequestValidation();
+}
+
+TEST_F(PeerImp_test, LedgerDataAndObjectRequests)
+{
+    testLedgerDataAndObjectRequests();
+}
+
+TEST_F(PeerImp_test, ValidationProposalAndSquelchHandlers)
+{
+    testValidationProposalAndSquelchHandlers();
+}
 
 }  // namespace xrpl::test

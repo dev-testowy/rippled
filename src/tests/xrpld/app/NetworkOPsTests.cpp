@@ -13,7 +13,7 @@
 #include <xrpld/app/misc/Transaction.h>
 
 #include <xrpl/basics/Slice.h>
-#include <xrpl/beast/unit_test/suite.h>
+#include <helpers/GTestBeastSuite.h>
 #include <xrpl/beast/utility/Journal.h>
 #include <xrpl/core/HashRouter.h>
 #include <xrpl/ledger/CanonicalTXSet.h>
@@ -39,8 +39,9 @@
 
 namespace xrpl::test {
 
-class NetworkOPs_test : public beast::unit_test::suite
+class NetworkOPs_test : public GTestBeastSuite
 {
+protected:
     struct TestInfoSub : InfoSub
     {
         Json::Value last;
@@ -132,20 +133,6 @@ class NetworkOPs_test : public beast::unit_test::suite
     }
 
 public:
-    void
-    run() override
-    {
-        testAllBadHeldTransactions();
-        testModeAndLedgerFlags();
-        testServerInfoAndValidationSubscriptions();
-        testAuxiliaryStreamPublications();
-        testPublicationSubscriptions();
-        testSubmitTransactionGuards();
-        testProcessTransactionPaths();
-        testProcessTransactionSetMixed();
-        testTransactionResultBranches();
-    }
-
     void
     testAllBadHeldTransactions()
     {
@@ -577,6 +564,49 @@ public:
     }
 };
 
-BEAST_DEFINE_TESTSUITE(NetworkOPs, app, xrpl);
+TEST_F(NetworkOPs_test, NoValidTransactionsInBatch)
+{
+    testAllBadHeldTransactions();
+}
+
+TEST_F(NetworkOPs_test, ModeAndLedgerFlags)
+{
+    testModeAndLedgerFlags();
+}
+
+TEST_F(NetworkOPs_test, ServerInfoAndValidationSubscriptions)
+{
+    testServerInfoAndValidationSubscriptions();
+}
+
+TEST_F(NetworkOPs_test, AuxiliaryStreamPublications)
+{
+    testAuxiliaryStreamPublications();
+}
+
+TEST_F(NetworkOPs_test, SubmitTransactionGuards)
+{
+    testSubmitTransactionGuards();
+}
+
+TEST_F(NetworkOPs_test, PublicationSubscriptions)
+{
+    testPublicationSubscriptions();
+}
+
+TEST_F(NetworkOPs_test, ProcessTransactionPaths)
+{
+    testProcessTransactionPaths();
+}
+
+TEST_F(NetworkOPs_test, MixedTransactionSet)
+{
+    testProcessTransactionSetMixed();
+}
+
+TEST_F(NetworkOPs_test, TransactionResultBranches)
+{
+    testTransactionResultBranches();
+}
 
 }  // namespace xrpl::test
