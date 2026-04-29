@@ -1,4 +1,4 @@
-include(isolate_headers)
+include(XrplAddTest)
 
 find_package(GTest REQUIRED)
 
@@ -18,29 +18,7 @@ target_link_libraries(
     INTERFACE xrpl.imports.test
 )
 
-function(xrpl_add_xrpld_test name)
-    set(target ${PROJECT_NAME}.test.xrpld.${name})
-
-    file(
-        GLOB_RECURSE sources
-        CONFIGURE_DEPENDS
-        "${CMAKE_CURRENT_SOURCE_DIR}/${name}/*.cpp"
-        "${CMAKE_CURRENT_SOURCE_DIR}/${name}.cpp"
-    )
-    add_executable(${target} ${ARGN} ${sources})
-
-    isolate_headers(
-        ${target}
-        "${CMAKE_SOURCE_DIR}/src/tests"
-        "${CMAKE_CURRENT_SOURCE_DIR}/${name}"
-        PRIVATE
-    )
-
-    target_link_libraries(${target} PRIVATE xrpl.imports.xrpld.test)
-
-    add_test(NAME ${target} COMMAND ${target})
-    set_tests_properties(${target} PROPERTIES LABELS xrpld)
-    add_dependencies(xrpl.tests.xrpld ${target})
-endfunction()
-
-xrpl_add_xrpld_test(smoke ${CMAKE_SOURCE_DIR}/src/tests/helpers/TestContext.cpp)
+xrpl_add_test(smoke ${CMAKE_SOURCE_DIR}/src/tests/helpers/TestContext.cpp)
+target_link_libraries(${PROJECT_NAME}.test.smoke PRIVATE xrpl.imports.xrpld.test)
+set_tests_properties(${PROJECT_NAME}.test.smoke PROPERTIES LABELS xrpld)
+add_dependencies(xrpl.tests.xrpld ${PROJECT_NAME}.test.smoke)
