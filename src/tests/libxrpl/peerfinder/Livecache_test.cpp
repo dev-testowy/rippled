@@ -4,6 +4,8 @@
 
 #include <xrpl/basics/chrono.h>
 #include <xrpl/basics/random.h>
+#include <xrpl/beast/net/IPAddressV4.h>
+#include <xrpl/beast/net/IPAddressV6.h>
 #include <xrpl/beast/net/IPEndpoint.h>
 #include <xrpl/beast/utility/Journal.h>
 
@@ -12,8 +14,6 @@
 #include <boost/algorithm/string/trim.hpp>
 #include <boost/lexical_cast.hpp>
 
-#include "xrpl/beast/net/IPAddressV4.h"
-#include "xrpl/beast/net/IPAddressV6.h"
 #include <gtest/gtest.h>
 #include <helpers/TestSink.h>
 
