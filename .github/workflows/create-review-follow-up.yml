@@ -1,0 +1,467 @@
+name: Create review follow-up issue
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "Pull request number to scan for unresolved review comments"
+        required: true
+        type: number
+      issue_title:
+        description: "Optional title for the follow-up issue"
+        required: false
+        type: string
+      labels:
+        description: "Optional comma-separated existing labels for a new follow-up issue"
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  create-review-follow-up:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create or update follow-up issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+          ISSUE_TITLE: ${{ inputs.issue_title }}
+          LABELS: ${{ inputs.labels }}
+        run: |
+          node <<'EOF'
+          const fs = require("node:fs");
+
+          const token = process.env.GH_TOKEN;
+          const repository = process.env.GITHUB_REPOSITORY;
+          const [owner, repo] = repository.split("/");
+          const prNumber = Number(process.env.PR_NUMBER);
+          const apiBase = process.env.GITHUB_API_URL || "https://api.github.com";
+          const serverUrl = process.env.GITHUB_SERVER_URL || "https://github.com";
+          const runUrl = `${serverUrl}/${repository}/actions/runs/${process.env.GITHUB_RUN_ID}`;
+          const marker = `review-followup-pr-${prNumber}`;
+          const issueMarker = `<!-- ${marker} -->`;
+          const commentMarker = `<!-- ${marker}-comment -->`;
+          const maxCommentChars = 3500;
+          const maxIssueBodyChars = 60000;
+
+          if (!token)
+            throw new Error("GH_TOKEN is required");
+
+          if (!Number.isInteger(prNumber) || prNumber <= 0)
+            throw new Error(`Invalid PR number: ${process.env.PR_NUMBER}`);
+
+          const apiHeaders = {
+            "Accept": "application/vnd.github+json",
+            "Authorization": `Bearer ${token}`,
+            "User-Agent": "review-follow-up-workflow",
+            "X-GitHub-Api-Version": "2022-11-28",
+          };
+
+          async function request(method, path, body) {
+            const response = await fetch(`${apiBase}${path}`, {
+              method,
+              headers: {
+                ...apiHeaders,
+                ...(body === undefined ? {} : { "Content-Type": "application/json" }),
+              },
+              body: body === undefined ? undefined : JSON.stringify(body),
+            });
+
+            const text = await response.text();
+            const data = text ? JSON.parse(text) : null;
+
+            if (!response.ok) {
+              const detail = data?.message ? `${data.message}: ${text}` : text;
+              throw new Error(`${method} ${path} failed with ${response.status}: ${detail}`);
+            }
+
+            return data;
+          }
+
+          async function graphql(query, variables) {
+            const data = await request("POST", "/graphql", { query, variables });
+
+            if (data.errors?.length) {
+              throw new Error(
+                `GraphQL failed: ${data.errors.map((error) => error.message).join("; ")}`
+              );
+            }
+
+            return data.data;
+          }
+
+          async function getPullRequestWithReviewThreads() {
+            const query = `
+              query PullRequestReviewThreads(
+                $owner: String!
+                $repo: String!
+                $number: Int!
+                $after: String
+              ) {
+                repository(owner: $owner, name: $repo) {
+                  pullRequest(number: $number) {
+                    number
+                    title
+                    url
+                    state
+                    reviewThreads(first: 50, after: $after) {
+                      nodes {
+                        id
+                        diffSide
+                        isOutdated
+                        isResolved
+                        line
+                        originalLine
+                        originalStartLine
+                        path
+                        startLine
+                        subjectType
+                        comments(first: 100) {
+                          totalCount
+                          nodes {
+                            author {
+                              login
+                            }
+                            body
+                            createdAt
+                            id
+                            isMinimized
+                            minimizedReason
+                            state
+                            updatedAt
+                            url
+                          }
+                        }
+                      }
+                      pageInfo {
+                        endCursor
+                        hasNextPage
+                      }
+                    }
+                  }
+                }
+              }
+            `;
+
+            let pullRequest = null;
+            const threads = [];
+            let after = null;
+
+            do {
+              const data = await graphql(query, { owner, repo, number: prNumber, after });
+              pullRequest = data.repository.pullRequest;
+
+              if (!pullRequest)
+                throw new Error(`Pull request #${prNumber} was not found in ${repository}`);
+
+              threads.push(...pullRequest.reviewThreads.nodes);
+              after = pullRequest.reviewThreads.pageInfo.hasNextPage
+                ? pullRequest.reviewThreads.pageInfo.endCursor
+                : null;
+            } while (after);
+
+            return { pullRequest, threads };
+          }
+
+          function truncate(text, limit) {
+            if (!text)
+              return "_No comment body._";
+
+            if (text.length <= limit)
+              return text;
+
+            return `${text.slice(0, limit - 35).trimEnd()}\n\n...[truncated, open the linked thread for the full comment]`;
+          }
+
+          function quote(text) {
+            return truncate(text, maxCommentChars)
+              .split("\n")
+              .map((line) => `> ${line}`)
+              .join("\n");
+          }
+
+          function unique(values) {
+            return [...new Set(values.filter(Boolean))];
+          }
+
+          function lineRange(thread) {
+            const start = thread.startLine || thread.originalStartLine;
+            const end = thread.line || thread.originalLine;
+
+            if (!end)
+              return "";
+
+            if (start && start !== end)
+              return `:${start}-${end}`;
+
+            return `:${end}`;
+          }
+
+          function formatLocation(thread) {
+            if (thread.subjectType === "FILE")
+              return `\`${thread.path}\``;
+
+            return `\`${thread.path}${lineRange(thread)}\``;
+          }
+
+          function submittedVisibleComments(thread) {
+            const submitted = thread.comments.nodes.filter((comment) => comment.state === "SUBMITTED");
+            const visible = submitted.filter((comment) => !comment.isMinimized);
+            return visible.length ? visible : submitted;
+          }
+
+          function formatThread(thread, index) {
+            const comments = submittedVisibleComments(thread);
+            const firstComment = comments[0] || thread.comments.nodes[0];
+            const authors = unique(
+              comments.map((comment) => comment.author?.login).map((login) => login && `@${login}`)
+            );
+            const status = thread.isOutdated ? "unresolved, outdated by newer changes" : "unresolved";
+            const url = firstComment?.url || `${serverUrl}/${repository}/pull/${prNumber}`;
+            const lines = [
+              `### ${index}. ${formatLocation(thread)}`,
+              `- Thread: [open in PR](${url})`,
+              `- Authors: ${authors.length ? authors.join(", ") : "unknown"}`,
+              `- Status: ${status}`,
+              "",
+              quote(firstComment?.body),
+            ];
+
+            if (thread.comments.totalCount > comments.length) {
+              lines.push(
+                "",
+                `_Showing ${comments.length} of ${thread.comments.totalCount} comments in this thread. Open the thread for the full discussion._`
+              );
+            }
+
+            if (comments.length > 1) {
+              lines.push("", "<details>", "<summary>Full thread</summary>", "");
+
+              for (const comment of comments) {
+                const author = comment.author?.login ? `@${comment.author.login}` : "unknown";
+                lines.push(`#### ${author} on ${comment.createdAt}`);
+                lines.push("");
+                lines.push(`[Open comment](${comment.url})`);
+                lines.push("");
+                lines.push(quote(comment.body));
+                lines.push("");
+              }
+
+              lines.push("</details>");
+            }
+
+            return lines.join("\n");
+          }
+
+          function defaultIssueTitle(pullRequest) {
+            const title = `Follow up review comments from PR #${pullRequest.number}: ${pullRequest.title}`;
+            return title.length <= 250 ? title : `${title.slice(0, 247)}...`;
+          }
+
+          function buildIssueBody(pullRequest, unresolvedThreads) {
+            const title = `# Follow-up review comments from PR #${pullRequest.number}`;
+            const header = [
+              issueMarker,
+              title,
+              "",
+              `Source PR: [#${pullRequest.number} - ${pullRequest.title}](${pullRequest.url})`,
+              `Collected by: [workflow run](${runUrl})`,
+              "",
+              "Only unresolved pull request review threads are included. Threads where GitHub reports `isResolved: true` are intentionally omitted.",
+              "",
+              `## Unresolved review threads (${unresolvedThreads.length})`,
+            ].join("\n");
+
+            let body = header;
+            let included = 0;
+            let truncated = false;
+
+            for (const [index, thread] of unresolvedThreads.entries()) {
+              const section = `\n\n${formatThread(thread, index + 1)}`;
+
+              if (body.length + section.length > maxIssueBodyChars) {
+                truncated = true;
+                break;
+              }
+
+              body += section;
+              included += 1;
+            }
+
+            if (truncated) {
+              body += [
+                "",
+                "",
+                "---",
+                "",
+                `_The issue body was truncated after ${included} of ${unresolvedThreads.length} unresolved threads to stay within GitHub's issue body limit. Open the source PR for the remaining threads._`,
+              ].join("\n");
+            }
+
+            return { body, included, truncated };
+          }
+
+          async function findIssueFromPullRequestComment() {
+            const comment = (await listPullRequestComments()).find((item) =>
+              item.body?.includes(commentMarker)
+            );
+
+            if (!comment)
+              return null;
+
+            const match = comment.body.match(/https?:\/\/\S+\/issues\/(\d+)/);
+
+            if (!match)
+              return null;
+
+            const issue = await request("GET", `/repos/${owner}/${repo}/issues/${match[1]}`);
+
+            if (issue.pull_request || issue.state !== "open")
+              return null;
+
+            return issue;
+          }
+
+          async function findExistingIssue() {
+            const issueFromComment = await findIssueFromPullRequestComment();
+
+            if (issueFromComment)
+              return issueFromComment;
+
+            const query = encodeURIComponent(`repo:${repository} is:issue is:open in:body ${marker}`);
+            const result = await request("GET", `/search/issues?q=${query}&per_page=10`);
+            return result.items.find((item) => !item.pull_request) || null;
+          }
+
+          async function createOrUpdateIssue(pullRequest, body) {
+            const titleInput = process.env.ISSUE_TITLE?.trim();
+            const title = titleInput || defaultIssueTitle(pullRequest);
+            const existingIssue = await findExistingIssue();
+
+            if (existingIssue) {
+              const payload = { body };
+
+              if (titleInput)
+                payload.title = title;
+
+              const issue = await request(
+                "PATCH",
+                `/repos/${owner}/${repo}/issues/${existingIssue.number}`,
+                payload
+              );
+
+              return { action: "updated", issue };
+            }
+
+            const labels = (process.env.LABELS || "")
+              .split(",")
+              .map((label) => label.trim())
+              .filter(Boolean);
+            const payload = { title, body };
+
+            if (labels.length)
+              payload.labels = labels;
+
+            const issue = await request("POST", `/repos/${owner}/${repo}/issues`, payload);
+            return { action: "created", issue };
+          }
+
+          async function listPullRequestComments() {
+            const comments = [];
+            let page = 1;
+
+            while (true) {
+              const pageComments = await request(
+                "GET",
+                `/repos/${owner}/${repo}/issues/${prNumber}/comments?per_page=100&page=${page}`
+              );
+              comments.push(...pageComments);
+
+              if (pageComments.length < 100)
+                break;
+
+              page += 1;
+            }
+
+            return comments;
+          }
+
+          async function createOrUpdatePullRequestComment(issue, action, unresolvedCount, bodyInfo) {
+            const verb = action === "created" ? "Created" : "Updated";
+            const truncated = bodyInfo.truncated
+              ? ` The issue body lists ${bodyInfo.included} of them before truncation.`
+              : "";
+            const body = [
+              commentMarker,
+              `${verb} follow-up issue for unresolved review comments: ${issue.html_url}`,
+              "",
+              `Included ${unresolvedCount} unresolved review thread(s). Resolved review threads were ignored.${truncated}`,
+            ].join("\n");
+            const existingComment = (await listPullRequestComments()).find((comment) =>
+              comment.body?.includes(commentMarker)
+            );
+
+            if (existingComment) {
+              await request(
+                "PATCH",
+                `/repos/${owner}/${repo}/issues/comments/${existingComment.id}`,
+                { body }
+              );
+              return;
+            }
+
+            await request("POST", `/repos/${owner}/${repo}/issues/${prNumber}/comments`, { body });
+          }
+
+          function setOutput(name, value) {
+            if (!process.env.GITHUB_OUTPUT)
+              return;
+
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, `${name}=${value}\n`);
+          }
+
+          async function main() {
+            const { pullRequest, threads } = await getPullRequestWithReviewThreads();
+            const unresolvedThreads = threads.filter((thread) => !thread.isResolved);
+
+            console.log(
+              `Found ${threads.length} review thread(s), ${unresolvedThreads.length} unresolved.`
+            );
+
+            setOutput("unresolved_count", String(unresolvedThreads.length));
+
+            if (!unresolvedThreads.length) {
+              console.log("No unresolved review threads found; no issue was created.");
+              return;
+            }
+
+            const bodyInfo = buildIssueBody(pullRequest, unresolvedThreads);
+            const { action, issue } = await createOrUpdateIssue(pullRequest, bodyInfo.body);
+            await createOrUpdatePullRequestComment(
+              issue,
+              action,
+              unresolvedThreads.length,
+              bodyInfo
+            );
+
+            setOutput("issue_number", String(issue.number));
+            setOutput("issue_url", issue.html_url);
+            setOutput("action", action);
+
+            console.log(`${action} issue #${issue.number}: ${issue.html_url}`);
+          }
+
+          main().catch((error) => {
+            console.error(error);
+            process.exitCode = 1;
+          });
+          EOF
