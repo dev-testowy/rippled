@@ -20,7 +20,7 @@
 #include <chrono>
 #include <cstdint>
 #include <string>
-
+// This is a test.
 namespace xrpl::Resource {
 
 class ResourceManagerTest : public ::testing::Test
