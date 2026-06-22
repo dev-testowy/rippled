@@ -27,7 +27,7 @@
 #include <vector>
 
 namespace xrpl::tests {
-
+// This is a test.
 #ifndef __INTELLISENSE__
 static_assert(std::is_nothrow_destructible<SHAMap>{}, "");
 static_assert(!std::is_default_constructible<SHAMap>{}, "");
